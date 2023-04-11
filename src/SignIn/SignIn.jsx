@@ -62,6 +62,11 @@ const SignIn = () => {
           data-testid="signin-button"
           disabled={false}
           onClick={goSignIn}
+          onKeyDown={e => {
+            if (e.key === 'Enter') {
+              goSignIn();
+            }
+          }}
         >
           로그인
         </S.SignInBtn>
