@@ -54,6 +54,11 @@ const SignUp = () => {
           data-testid="signup-button"
           disabled={false}
           onClick={goSignUp}
+          onKeyDown={e => {
+            if (e.key === 'Enter') {
+              goSignUp();
+            }
+          }}
         >
           회원가입
         </S.SignUpBtn>
