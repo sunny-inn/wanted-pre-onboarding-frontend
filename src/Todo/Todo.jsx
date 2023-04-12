@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import * as S from './Todo.style';
 
 const Todo = () => {
@@ -7,66 +6,112 @@ const Todo = () => {
   const [listContent, setListContent] = useState('');
   const [editIndex, setEditIndex] = useState(-1);
   const [editContent, setEditContent] = useState('');
-  const navigate = useNavigate();
 
-  const handleTodo = e => {
+  const token = localStorage.getItem('token');
+
+  const onChangeTodoContent = e => {
     setListContent(e.target.value);
   };
 
-  const handleUpload = () => {
-    setTodoList(prevlist => {
-      return [...prevlist, listContent];
-    });
-    setListContent('');
+  //createTodo
+  const onClickAdd = () => {
+    if (!listContent) {
+      alert('내용을 추가해 주세요!');
+    } else {
+      fetch('https://www.pre-onboarding-selection-task.shop/todos', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          todo: `${listContent}`,
+        }),
+      })
+        .then(response => {
+          if (response.status === 201) {
+            setTodoList(prevlist => [
+              ...prevlist,
+              { id: prevlist.length + 1, todo: listContent },
+            ]);
+            setListContent('');
+          }
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          alert(`Error: ${error}`);
+        });
+    }
   };
 
-  const handleEdit = index => {
+  //getTodos
+  useEffect(() => {
+    fetch('https://www.pre-onboarding-selection-task.shop/todos', {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+      .then(response => response.json())
+      .then(result => {
+        setTodoList(result);
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        alert(`Error: ${error}`);
+      });
+  }, [token]);
+
+  const onClickEdit = (index, id) => {
     setEditIndex(index);
-    setEditContent(todoList[index]);
+    setEditContent(todoList[index].todo);
   };
 
-  const handleSave = index => {
+  //updateTodo
+  const onClickSubmit = (index, id, event) => {
+    const { checked } = event.target;
+
     setTodoList(prevlist => {
-      prevlist[index] = editContent;
+      prevlist[index].todo = editContent;
       return prevlist;
     });
     setEditIndex(-1);
+
+    fetch(`https://www.pre-onboarding-selection-task.shop/todos/${id}`, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        todo: `${listContent}`,
+        isCompleted: checked,
+        // id: `${listContent.id}`,
+      }),
+    })
+      .then(response => {
+        if (response.status !== 200) {
+          alert(`State Code: ${response.status}`);
+        }
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        alert(`Error: ${error}`);
+      });
   };
 
-  const handleCancel = () => {
+  const onClickCancel = () => {
     setEditIndex(-1);
   };
 
-  const handleEditContent = e => {
+  const onChangeContent = e => {
     setEditContent(e.target.value);
   };
 
-  const handleDelete = index => {
+  const onClickDelete = index => {
     setTodoList(prevList => prevList.filter((_, i) => i !== index));
     alert('삭제되었습니다.');
   };
-
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      navigate('/signin');
-      return;
-    }
-    fetch('https://www.pre-onboarding-selection-task.shop/todos', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        todo: 'listContent',
-      }),
-    }).then(response => {
-      if (response.status === 201) {
-        console.log('응답', response);
-      }
-    });
-  }, []);
 
   return (
     <div>
@@ -74,61 +119,68 @@ const Todo = () => {
         type="text"
         data-testid="new-todo-input"
         value={listContent}
-        onChange={handleTodo}
+        onChange={onChangeTodoContent}
+        onKeyPress={e => {
+          if (e.key === 'Enter') {
+            onClickAdd();
+          }
+        }}
       />
-      <button data-testid="new-todo-add-button" onClick={handleUpload}>
+      <button data-testid="new-todo-add-button" onClick={onClickAdd}>
         추가
       </button>
       <ul>
-        {todoList.map((content, index) => {
-          const isEditing = index === editIndex;
-          return (
-            <li key={index}>
-              <label>
-                <input type="checkbox" />
+        {todoList.length > 0 &&
+          todoList.map(({ content, isCompleted, id }, index) => {
+            const isEditing = index === editIndex;
+            return (
+              <li key={id}>
+                <label>
+                  <input type="checkbox" checked={isCompleted}>
+                    이게뭐지?
+                  </input>
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      data-testid="modify-input"
+                      value={editContent}
+                      onChange={onChangeContent}
+                    />
+                  ) : (
+                    <span>{content}</span>
+                  )}
+                </label>
                 {isEditing ? (
-                  <input
-                    type="text"
-                    data-testid="modify-input"
-                    value={editContent}
-                    onChange={handleEditContent}
-                  />
+                  <>
+                    <button
+                      data-testid="submit-button"
+                      onClick={() => onClickSubmit(index)}
+                    >
+                      제출
+                    </button>
+                    <button data-testid="cancel-button" onClick={onClickCancel}>
+                      취소
+                    </button>
+                  </>
                 ) : (
-                  <span>{content}</span>
+                  <>
+                    <button
+                      data-testid="modify-button"
+                      onClick={() => onClickEdit(index)}
+                    >
+                      수정
+                    </button>
+                    <button
+                      onClick={() => onClickDelete(index)}
+                      data-testid="delete-button"
+                    >
+                      삭제
+                    </button>
+                  </>
                 )}
-              </label>
-              {isEditing ? (
-                <>
-                  <button
-                    data-testid="submit-button"
-                    onClick={() => handleSave(index)}
-                  >
-                    제출
-                  </button>
-                  <button data-testid="cancel-button" onClick={handleCancel}>
-                    취소
-                  </button>
-                </>
-              ) : (
-                <>
-                  {' '}
-                  <button
-                    data-testid="modify-button"
-                    onClick={() => handleEdit(index)}
-                  >
-                    수정
-                  </button>
-                  <button
-                    onClick={() => handleDelete(index)}
-                    data-testid="delete-button"
-                  >
-                    삭제
-                  </button>
-                </>
-              )}
-            </li>
-          );
-        })}
+              </li>
+            );
+          })}
       </ul>
     </div>
   );
